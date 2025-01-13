@@ -6,7 +6,7 @@ package main
 import (
 	"fmt"
 	"image"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"regexp"
@@ -60,7 +60,7 @@ func main() {
 	if opt.doLog {
 		log.SetOutput(os.Stdout)
 	} else {
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(io.Discard)
 	}
 	log.Printf("Application starting. Version: %s (%s)\n", version, distribution)
 	log.Printf("CAP_SYS_RESOURCE: %t\n", hasCapSysResource(getCurrentCaps()))
@@ -106,7 +106,7 @@ func main() {
 }
 
 func dumpLib() string {
-	f, err := ioutil.TempFile("", "librnnoise-*.so")
+	f, err := os.CreateTemp("", "librnnoise-*.so")
 	if err != nil {
 		log.Fatalf("Couldn't open temp file for librnnoise\n")
 	}
@@ -254,7 +254,7 @@ func serverInfo(paClient *pulseaudio.Client) (audioserverinfo, error) {
 	} else {
 		servername = "PulseAudio"
 		servertype = servertype_pulse
-		versionRegex = regexp.MustCompile(`.*?(\d+)\.(\d+)\.(\d+).*?`)
+		versionRegex = regexp.MustCompile(`.*?(\d+)\.(\d+)\.?(\d+)?.*?`)
 		versionString = info.PackageVersion
 		log.Printf("Detected PulseAudio\n")
 	}
@@ -263,6 +263,11 @@ func serverInfo(paClient *pulseaudio.Client) (audioserverinfo, error) {
 	if len(res) != 4 {
 		log.Printf("couldn't parse server version, regexp didn't match version: %s\n", versionString)
 		return audioserverinfo{servertype: servertype}, nil
+	}
+	// the server version did not match the standard `major.minor.patch` pattern
+	// setting the patch version to default 0
+	if res[3] == "" {
+		res[3] = "0"
 	}
 	major, err = strconv.Atoi(res[1])
 	if err != nil {
@@ -330,7 +335,7 @@ func getDefaultSinkID(client *pulseaudio.Client) (string, error) {
 	return server.DefaultSink, nil
 }
 
-//this is disgusting
+// this is disgusting
 func fixWindowClass() {
 	xu, err := xgbutil.NewConn()
 	defer xu.Conn().Close()
